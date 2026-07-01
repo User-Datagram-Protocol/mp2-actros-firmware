@@ -22,6 +22,10 @@ if (throttle_pct > 0)
 {
 	printf("[EB] Engine brake inhibited throttle active\n");
 }
+else if (gear < 8)
+{
+	printf("[EB] Engine brake inhibited  gear tool low\n");
+}
 else if (rpm < 900)
 {
 	printf("[EB] Engine brake inhibited RPM too low\n");

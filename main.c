@@ -13,7 +13,12 @@ typedef struct {
 	float wheel_speed_front;
 	float wheel_speed_rear;
 	int throttle_pct;
-  } ActrosState;
+	float fuel_level_liters;
+	float intake_air_temp;
+	float afr;
+	float fuel_rate_lh;
+	float economy_l100km;
+}     ActrosState;
 void check_engine(ActrosState *truck)
 {
 if (truck->coolant_temp >= 110)
@@ -161,10 +166,83 @@ else
 }
 } 
 
+void check_fuel(ActrosState *truck)
+{
+	/* Fuel burn based on RPM */
+if (truck->rpm > 1500)
+	truck->fuel_level_liters -= 0.8f;
+else if (truck->rpm > 1000)
+	truck->fuel_level_liters -= 0.4f;
+else
+	truck->fuel_level_liters -= 0.1f;
+
+	/* Fault checks */
+if (truck->fuel_level_liters < 0.0f)
+	truck->fuel_level_liters = 0.0f;
+
+if (truck->fuel_level_liters == 0.0f)
+	printf("[FUEL] CRITICAL  tank empty, engine shutdown!\n");
+else if (truck->fuel_level_liters < 50.0f)
+	printf("[FUEL] WARNING low fuel: %.1f L remaining\n", truck->fuel_level_liters);
+else
+	printf("[FUEL] Tank: %.1f L\n", truck->fuel_level_liters);
+}
+
+void calculate_afr(ActrosState *truck)
+{
+	/* Air mass estimate from boost and intake temp */
+	/* Hottor air = less dense = less oxygen */
+	float air_density = truck->boost / (1.0f + (truck->intake_air_temp - 20.0f) * 0.003f);
+
+	/* Calculate AFR based on load and air density */
+if (truck->rpm < 700)
+{
+	printf("[EDC] idle mode  AFR not monitored\n");
+	printf("[EDC] Fuel rate: %.1f L/h\n", truck->fuel_rate_lh);
+	printf("[EDC] Economy: N/A (stationary)\n");
+	return;
+}
+if (truck->load_pct > 80)
+	truck->afr = 14.0f * air_density;
+else if (truck->load_pct > 50)
+	truck->afr = 18.0f * air_density;
+else if (truck->load_pct > 20)
+	truck->afr = 28.0f * air_density;
+else
+	truck->afr = 50 * air_density;
+
+	/* Fuel rate based on RPM and load */
+	truck->fuel_rate_lh = (truck->rpm / 1000.0f) * (truck->load_pct / 100.0f) * 45.0f;
+
+	/* Economy avoid divide by zero */
+if (truck->speed_kmh > 0)
+	truck->economy_l100km = (truck->fuel_rate_lh / truck->speed_kmh) * 100.0f;
+
+	/* Display */
+	printf("[EDC] AFR:  %.1f : 1\n", truck->afr);
+	printf("[EDC] Fuel rate: %.1f L/h\n", truck->fuel_rate_lh);
+
+if (truck->speed_kmh > 0)
+	printf("[EDC] Economy: %.1f L/100km\n", truck->economy_l100km);
+else
+	printf("[EDC] Economy: N/A (stationary)\n");
+
+	/* AFR fault checks */
+if (truck->afr < 14.0f)
+	printf("[EDU] WARNING  running rich, black smoke risk\n");
+else if (truck->afr > 60.0f)
+	printf("[EDC] WARNING  running too lean, power loss\n");
+else
+	printf("[ECU] AFR OK\n");
+}
+
+
+
+
 	int main(void)
 	{
 
-	ActrosState truck = {550, 1, 82, 95, 0.1f, 0, 5, 4.0f, 0.0f, 0.0f, 0, 1};
+	ActrosState truck = {550, 1, 82, 95, 0.1f, 0, 5, 8.5f, 0.0f, 0.0f, 0, 1, 400.0f, 35.0f, 0.0f, 0.0f, 0.0f};
 
 	printf("=== MP2 ACTROS SYSTEM ===\n");
 	printf("Throttle: %d%%\n", truck.throttle_pct);
@@ -178,8 +256,8 @@ else
 	check_air(&truck);
 	check_abs(&truck);
 	check_engine_brake(&truck);
-	
-
+	check_fuel(&truck);
+	calculate_afr(&truck);
 	return 0;
 }
 
