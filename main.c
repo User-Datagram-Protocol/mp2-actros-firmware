@@ -9,6 +9,8 @@ typedef struct {
 	int speed_kmh;
 	int load_pct;
 	float air_pressure_bar;
+	int compressor_active;
+	float compressor_build_rate;
 	int handbrake_engaged;
 	float wheel_speed_front;
 	float wheel_speed_rear;
@@ -236,6 +238,37 @@ else
 	printf("[ECU] AFR OK\n");
 }
 
+void update_compressor(ActrosState *truck)
+{
+	/* No engine no compressor */
+if (truck->rpm < 500)
+{
+	truck->compressor_active = 0;
+	printf("[COMP] Compressor offline engine off\n");
+	return;
+}
+
+	/* Governor logic */
+if (truck->air_pressure_bar >= 8.5f)
+{
+	truck->compressor_active = 0;
+	printf("[COMP] Governor cutout pressure nominal\n");
+}
+else if (truck->air_pressure_bar <= 7.2f)
+{
+	truck->compressor_active = 1;
+	/* Build rate based on RPM */
+	truck->compressor_build_rate = (truck->rpm / 1000.0f) * 0.3f;
+	truck->air_pressure_bar += truck->compressor_build_rate;
+	printf("[COMP] Building pressure %.2f bar/cycle\n", truck->compressor_build_rate);
+}
+else
+{
+	printf("[COMP] Pressure in range standby\n");
+}
+
+	printf("[COMP] Tank: %.1f bar\n", truck->air_pressure_bar);
+}
 
 
 
@@ -258,6 +291,7 @@ else
 	check_engine_brake(&truck);
 	check_fuel(&truck);
 	calculate_afr(&truck);
+	update_compressor(&truck);
 	return 0;
 }
 
