@@ -123,6 +123,10 @@ if (truck->throttle_pct > 0)
 {
 	printf("[EB] Engine brake inhibited throttle active\n");
 }
+else if (truck->gear < 8)
+{
+	printf("[EB] Engine brake inhibited gear too low\n");
+}
 else if (truck->rpm < 900)
 {
 	printf("[EB] Engine brake inhibited RPM too low\n");
@@ -142,26 +146,77 @@ else
 }
 }
 
+void update_rpm(ActrosState *truck)
+{
+if (truck->throttle_pct == 0)
+	truck->rpm = 550;
+else if (truck->throttle_pct == 25)
+	truck->rpm = 900;
+else if (truck->throttle_pct == 50)
+	truck->rpm = 1200;
+else if (truck->rpm == 75)
+	truck->rpm = 1500;
+else
+	truck->rpm = 1750;
+}
+
+void update_boost(ActrosState *truck)
+{
+if (truck->rpm < 700)
+	truck->boost = 0.1f;
+else if (truck->rpm < 1000)
+	truck->boost = 0.4f;
+else if (truck->rpm < 1200)
+	truck->boost = 0.8f;
+else if (truck->rpm < 1400)
+	truck->boost = 1.2f;
+else if (truck->rpm < 1600)
+	truck->boost = 1.6f;
+else
+	truck->boost = 2.0f;
+} 
+
 	int main(void)
 	{
 
-	ActrosState truck = {550, 4, 82, 95, 0.1f, 72, 68, 8.5f, 72.0f, 72.0f, 0};
+	ActrosState truck = {550, 1, 82, 95, 0.1f, 0, 5, 8.5f, 0.0f, 0.0f, 0};
+	char input;
+
+	printf("Controls: w = throttle up | s = throttle down | q = quit\n");
+
+while  (1)
+	{
+	  update_rpm(&truck);
+	  update_boost(&truck);
 
 	printf("=== MP2 ACTROS SYSTEM ===\n");
+	printf("Throttle: %d%%\n", truck.throttle_pct);
 	printf("RPM:   %d\n", truck.rpm);
-	printf("Gear:  %d\n", truck.gear);
-	printf("Coolant: %d C\n", truck.coolant_temp);
-	printf("Oil: %d C\n",  truck.oil_temp);
 	printf("Boost: %.2f bar\n", truck.boost);
-	printf("Speed: %d km/h\n", truck.speed_kmh);
-	printf("Load: %d%%\n", truck.load_pct);
-	printf("Air: %.1f bar\n", truck.air_pressure_bar);
+	printf("Gear:  %d\n", truck.gear);
+
 	
-	check_engine(&truck);
+        check_engine(&truck);
 	check_transmission(&truck);	
 	check_air(&truck);
 	check_abs(&truck);
 	check_engine_brake(&truck);
+	
+	printf("Input: ");
+	fflush(stdout);
+	input = getchar();
+while(getchar() != '\n');
+
+	printf("DEBUG throttle before update: %d\n", truck.throttle_pct);
+
+if (input == 'q') break;
+else if (input == 'w' && truck.throttle_pct < 100)
+		truck.throttle_pct += 25;
+else if (input == 's' && truck.throttle_pct > 0)
+		truck.throttle_pct -= 25;
+}
+
+	printf("\n[SYSTEM] Engine shutdown. \n");
 	return 0;
 }
 
