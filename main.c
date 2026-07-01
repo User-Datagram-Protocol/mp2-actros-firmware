@@ -9,6 +9,9 @@ typedef struct {
 	int speed_kmh;
 	int load_pct;
 	float air_pressure_bar;
+	float wheel_speed_front;
+	float wheel_speed_rear;
+	int throttle_pct;
   } ActrosState;
 void check_engine(ActrosState *truck)
 {
@@ -92,10 +95,57 @@ else
 }
 }
 
+void check_abs(ActrosState *truck)
+{
+if (truck->air_pressure_bar < 5.5f)
+{
+	printf("[ABS] WARNING  low air pressure, reduced ABS effectiveness\n");
+}
+else if ((truck->speed_kmh - truck->wheel_speed_front) > 15.0f)
+{
+	printf("[ABS] ALERT front wheel lockup detected!\n");
+	printf("[ABS] Pulsing brake pressure front axle\n");
+}
+else if ((truck->speed_kmh - truck->wheel_speed_rear) > 15.0f)
+{
+	printf("[ABS] ALERT rear wheel lockup detected!\n"); 
+        printf("[ABS] Pulsing brake pressure rear axle\n");
+}
+else
+{
+	printf("[ABS] All wheels rolling normally\n");
+} 
+} 
+
+void check_engine_brake(ActrosState *truck)
+{
+if (truck->throttle_pct > 0)
+{
+	printf("[EB] Engine brake inhibited throttle active\n");
+}
+else if (truck->rpm < 900)
+{
+	printf("[EB] Engine brake inhibited RPM too low\n");
+}
+else if (truck->speed_kmh > 80 &&truck->rpm >= 1400)
+{
+	printf("[EB] Engine brake LEVEL 2  full compression\n");
+	printf("[EB] Brakeing force active on all cylinders\n");
+}
+else if (truck->speed_kmh > 50 && truck->rpm >= 1100)
+{
+	printf("[EB] Engine brake LEVEL 1  partial compression\n");
+}
+else
+{
+	printf("[EB] Engine brake standby\n");
+}
+}
+
 	int main(void)
 	{
 
-	ActrosState truck = {550, 4, 82, 95, 0.1f, 72, 68, 8.5f};
+	ActrosState truck = {550, 4, 82, 95, 0.1f, 72, 68, 8.5f, 72.0f, 72.0f, 0};
 
 	printf("=== MP2 ACTROS SYSTEM ===\n");
 	printf("RPM:   %d\n", truck.rpm);
@@ -110,5 +160,8 @@ else
 	check_engine(&truck);
 	check_transmission(&truck);	
 	check_air(&truck);
+	check_abs(&truck);
+	check_engine_brake(&truck);
 	return 0;
 }
+
